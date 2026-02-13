@@ -1,0 +1,11 @@
+scikit-learn
+skforecast
+pandas
+numpy
+supabase
+python-dotenv
+pyyaml
+matplotlib
+seaborn
+xgboost
+lightgbm

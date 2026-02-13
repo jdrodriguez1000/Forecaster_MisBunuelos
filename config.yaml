@@ -1,0 +1,25 @@
+project:
+  name: "Forecaster Mis Bunuelos"
+  description: "Sales forecasting model for the next 6 months"
+  data_path: "data"
+  raw_data_path: "data/01_raw"
+  cleansed_data_path: "data/02_cleansed"
+  features_data_path: "data/03_features"
+  processed_data_path: "data/04_processed"
+  models_path: "outputs/models"
+  forecasts_path: "outputs/forecasts"
+  reports_path: "outputs/reports"
+  figures_path: "outputs/figures"
+  experiments_path: "experiments"
+
+data:
+  min_history_months: 36
+  target_column: "total_unidades_entregadas"
+  date_column: "fecha"
+
+model:
+  horizon: 6
+  random_state: 42
+  forecaster_type: "ForecasterDirect"
+  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  cv_folds: 12
