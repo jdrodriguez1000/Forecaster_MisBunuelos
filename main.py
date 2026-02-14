@@ -16,11 +16,14 @@ def main():
     
     print("Starting Forecaster Pipeline...")
     
-    # TODO: Orchestrate the pipeline execution based on arguments or config
     # 1. Discovery (Loader)
+    if not args.phase or args.phase == "discovery":
+        print("Running Phase 1: Data Discovery...")
+        from src.loader import DataLoader
+        loader = DataLoader(config)
+        loader.run()
+
     # 2. Preprocessing
-    # 3. Features
-    # 4. Modeling
 
 if __name__ == "__main__":
     main()
