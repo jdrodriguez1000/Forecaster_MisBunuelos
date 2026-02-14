@@ -9,3 +9,5 @@ matplotlib
 seaborn
 xgboost
 lightgbm
+pyarrow
+ipykernel

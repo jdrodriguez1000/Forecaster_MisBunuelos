@@ -1,25 +1,99 @@
+# =============================================================================
+# CONFIGURATION FILE: Pronóstico Buñuelos "Mis Buñuelos"
+# =============================================================================
+
 project:
   name: "Forecaster Mis Bunuelos"
   description: "Sales forecasting model for the next 6 months"
-  data_path: "data"
-  raw_data_path: "data/01_raw"
-  cleansed_data_path: "data/02_cleansed"
-  features_data_path: "data/03_features"
-  processed_data_path: "data/04_processed"
-  models_path: "outputs/models"
-  forecasts_path: "outputs/forecasts"
-  reports_path: "outputs/reports"
-  figures_path: "outputs/figures"
-  experiments_path: "experiments"
+  language: en  # Code & Folders
+  context: es   # Rules & Business logic
+  random_state: 42
+  target_column: "total_unidades_entregadas"
 
+# -----------------------------------------------------------------------------
+# INFRASTRUCTURE & PATHS
+# -----------------------------------------------------------------------------
+paths:
+  data:
+    base: data/
+    raw: data/01_raw/
+    cleansed: data/02_cleansed/
+    features: data/03_features/
+    processed: data/04_processed/
+  
+  # Segregación Lab (Experiments)
+  lab:
+    base: experiments/
+    # Phase specific artifact paths are constructed dynamically in code: experiments/phase_XX/artifacts|figures
+  
+  # Segregación Prod (Outputs)
+  prod:
+    base: outputs/
+    reports: outputs/reports/
+    figures: outputs/figures/
+    models: outputs/models/
+    forecasts: outputs/forecasts/
+    metrics: outputs/metrics/
+
+# -----------------------------------------------------------------------------
+# DATA PARAMETERS
+# -----------------------------------------------------------------------------
 data:
-  min_history_months: 36
   target_column: "total_unidades_entregadas"
   date_column: "fecha"
+  full_update: false
+  min_history_months: 36
+  source_tables:
+    - "ventas_diarias"
+    - "redes_sociales"
+    - "promocion_diaria"
+    - "macro_economia"
 
-model:
-  horizon: 6
-  random_state: 42
-  forecaster_type: "ForecasterDirect"
-  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-  cv_folds: 12
+# -----------------------------------------------------------------------------
+# DATA SCIENCE PARAMETERS
+# -----------------------------------------------------------------------------
+validation:
+  min_months_required: 36
+  test_size_months: 12
+  val_size_months: 12
+  horizon_months: 6
+  backtest_refit: false  # Rolling window strategy (ForecasterDirect refit is usually false for speed unless required)
+
+forecasting:
+  engine: skforecast
+  forecaster_type: ForecasterDirect
+  lags: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # 1-12 months lags
+  models:
+    - Ridge
+    - RandomForestRegressor
+    - LGBMRegressor
+    - XGBRegressor
+    - GradientBoostingRegressor
+    - HistGradientBoostingRegressor
+
+# -----------------------------------------------------------------------------
+# DOMAIN EXPERT RULES (Business Logic)
+# -----------------------------------------------------------------------------
+business_events:
+  novenas:
+    start_day: 16
+    end_day: 23 # Adjusted to 23 based on expert rules (16-23)
+    month: 12
+  primas:
+    months: [6, 12]
+    day_range: [15, 20] # Range 15-20
+  promotions:
+    windows: [[4, 5], [9, 10]] # [[April, May], [Sep, Oct]]
+  peak_days:
+    days: ["Saturday", "Sunday"]
+    holidays_as: "Saturday"
+  macro_projection:
+    method: MA
+    window_size: 2  # Promedio Móvil Recursivo de 2 meses
+
+# -----------------------------------------------------------------------------
+# DATA QUALITY (Discovery & Audit)
+# -----------------------------------------------------------------------------
+quality:
+  sentinel_values: [0, -1, 999]
+  imputation_strategy: interpolate # linear, mean, median
