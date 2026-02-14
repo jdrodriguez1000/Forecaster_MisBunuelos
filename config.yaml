@@ -95,5 +95,11 @@ business_events:
 # DATA QUALITY (Discovery & Audit)
 # -----------------------------------------------------------------------------
 quality:
-  sentinel_values: [0, -1, 999]
+  sentinel_values:
+    numeric: [-1, 999, 9999]
+    categorical: ["UNKNOWN", "N/A", "NULL", ""]
+    datetime: ["1900-01-01", "2099-12-31"]
+    boolean: []
   imputation_strategy: interpolate # linear, mean, median
+  high_cardinality_threshold: 0.9 # Ratio unique/total > 0.9 implies potential ID column or high cardinality
+  zero_presence_threshold: 0.3 # Ratio of zeros > 0.3 implies high presence of zeros

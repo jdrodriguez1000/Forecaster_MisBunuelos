@@ -39,17 +39,78 @@ El notebook debe ser autocontenido y estructurado celda por celda:
     * Ejecutar `sync_table()` para cada una.
     * Imprimir logs claros: "Tabla X: [STATUS] (Registros: N)".
 
-* **Celda 4: Validación de Salud (Sanity Check) y Generación de Reporte:**
+* **Celda 4: Validación de Salud (Sanity Check):**
     * Leer cada parquet generado en `data/01_raw/`.
     * Mostrar `.info()` y `.head()` de cada uno.
     * **Validación Crítica:** Verificar si la tabla de ventas tiene al menos 36 meses de historia (según la regla de negocio).
-    * **Generación de Reporte (JSON):**
-        * Estructurar el JSON para incluir la sección `download_details` *antes* de `validation_details`.
-        * Para cada tabla, registrar:
-            * `status`: "Full Download", "Incremental Download" o "Up to Date".
-            * `new_rows`: Número de filas descargadas (0 si está al día).
-            * `total_rows`: Total de filas en el archivo local despues de la operación.
-            * `download_timestamp`: Fecha y hora de la operación.
+
+* **Celda 5: Análisis Estadístico (Variables Numéricas):**
+    * Para cada variable numérica detectada:
+        * Calcular: Media, Mediana, Desviación Estándar.
+        * Calcular: Mínimo, Máximo.
+        * Calcular: Percentiles (25, 50, 75).
+    * Almacenar resultados en diccionario de metadatos.
+
+* **Celda 6: Análisis Temporal (Variables Datetime):**
+    * Para cada variable datetime detectada:
+        * Identificar fecha mínima y máxima.
+        * Detectar fechas faltantes (gaps) si aplica (especialmente en series de tiempo diarias).
+        * Detectar fechas duplicadas.
+    * Almacenar resultados.
+
+* **Celda 7: Análisis Categórico (Variables Object):**
+    * Para cada variable categórica (object):
+        * Identificar valores únicos.
+        * Calcular frecuencia y peso relativo (%) de cada categoría.
+    * Almacenar resultados.
+
+* **Celda 8: Detección de Valores Atípicos (Outliers):**
+    * Para variables numéricas (int, float):
+        * Definir límites (ej. IQR o Z-score).
+        * Contar atípicos superiores e inferiores.
+        * Identificar límites de corte.
+    * Almacenar resultados.
+
+* **Celda 9: Detección de Varianza Cero (Zero Variance):**
+    * Para todas las columnas de todos los archivos:
+        * Verificar si la columna tiene un único valor (varianza cero).
+        * Registrar las columnas que no aportan información.
+
+* **Celda 10: Detección de Alta Cardinalidad:**
+    * Leer parámetro `high_cardinality_threshold` desde `config.yaml` (sección `quality`).
+    * Para todas las columnas (especialmente categóricas/object y discretas):
+        * Calcular cardinalidad (valores únicos).
+        * Si cardinalidad > threshold, marcar como Alta Cardinalidad.
+        * (Opcional) Calcular ratio de cardinalidad si el threshold es relativo (0-1).
+
+* **Celda 11: Detección de Presencia de Ceros:**
+    * Leer parámetro `zero_presence_threshold` desde `config.yaml` (opcional, o usar default).
+    * Para todas las variables numéricas:
+        * Calcular porcentaje de valores que son exactamente 0.
+        * Si supera el umbral, reportar alta presencia de ceros.
+
+* **Celda 12: Detección de Filas Repetidas:**
+    * Para cada archivo/tabla:
+        * Identificar número de filas duplicadas (exact matches).
+        * Reportar si existen duplicados, indicando la cantidad.
+
+* **Celda 13: Detección de Valores Nulos:**
+    * Para todas las columnas de todos los archivos:
+        * Calcular cantidad y porcentaje de valores `NaN` o `None`.
+        * Identificar columnas con alta presencia de nulos.
+        * Reportar columnas afectadas y magnitud del problema.
+
+* **Celda 14: Informe de Valores Centinela (Sentinel Values):**
+    * Leer diccionario `sentinel_values` desde `config.yaml` (por tipo: `numeric`, `categorical`, `datetime`, `boolean`).
+    * Para cada columna del archivo:
+        * Determinar tipo de dato.
+        * Buscar coincidencias exactas con los valores centinela configurados para ese tipo.
+        * Reportar: `{ "columna": "nombre", "valor_centinela": valor, "conteo": n }`.
+
+* **Celda 15: Generación de Reporte (JSON):**
+    * Consolidar toda la información recabada (Descargas, Validación, Estadísticas, Outliers, Varianza, Cardinalidad, Ceros, Duplicados, Nulos, Centinelas).
+    * Estructurar el JSON para incluir la sección `download_details` *antes* de `validation_details` y `statistics`.
+    * Guardar en `experiments/phase_01_discovery/artifacts/phase_01_discovery.json`.
 
 ### Paso 3: Ejecución Manual y Verificación
 * **Acción:** El usuario abrirá y ejecutará manualmente el notebook `notebooks/01_data_discovery.ipynb`.
