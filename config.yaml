@@ -142,3 +142,55 @@ data_contract:
 financial_health:
   target_files:
     - ventas_diarias
+
+# -----------------------------------------------------------------------------
+# PREPROCESSING (Phase 2)
+# -----------------------------------------------------------------------------
+preprocessing:
+  frequency: "MS"  # Month Start
+  data_frequency:
+    ventas_diarias: "D"
+    redes_sociales: "D"
+    promocion_diaria: "D"
+    macro_economia: "MS"
+  
+  # Mapa de Renombramiento (Sanitización)
+  rename_map:
+    "campaña": "campana"
+    "inversion_total_diaria": "inversion_marketing_total"
+
+  # Filtrado de Ruido
+  filters:
+    exclude_ids: [999]
+    min_date: "2018-01-01"
+
+  # Lógica de Recálculo Financiero (Corrección Costos Fase 1)
+  recalc_financials: true 
+
+  # Reglas de Agregación Mensual
+  aggregation_rules:
+    # Ventas
+    total_unidades_entregadas: "sum"
+    unidades_precio_normal: "sum"
+    unidades_promo_pagadas: "sum"
+    unidades_promo_bonificadas: "sum" # Días en promo
+    ingresos_totales: "sum" # Se recalculara antes si recalc_financials=true
+    costo_total: "sum"      # Se recalculara antes si recalc_financials=true
+    utilidad: "sum"         # Se recalculara antes si recalc_financials=true
+    precio_unitario_full: "mean"
+    costo_unitario: "mean"
+    
+    # Marketing
+    inversion_facebook: "sum"
+    inversion_instagram: "sum"
+    inversion_marketing_total: "sum"
+    
+    # Promos
+    es_promo: "sum" # Días en promo
+    
+    # Macros
+    ipc_mensual: "first"
+    trm_promedio: "first"
+    tasa_desempleo: "first"
+    costo_insumos_index: "first"
+    confianza_consumidor: "first"
