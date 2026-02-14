@@ -115,10 +115,21 @@ El notebook debe ser autocontenido y estructurado celda por celda:
         * Detectar y reportar columnas adicionales (extra columns) no definidas en el contrato.
         * Generar estado `PASS` o `FAIL` para cada tabla.
 
-* **Celda 16: Generación de Reporte JSON:**
+* **Celda 16: Validación de Salud Financiera (Business Rules):**
+    * Iterar `target_files` desde `config['financial_health']`.
+    * Aplicar Regla 2.1: `total_unidades_entregadas` == SUM(`unidades_precio_normal`, `unidades_promo_pagadas`, `unidades_promo_bonificadas`).
+    * Aplicar Regla 2.2: `unidades_promo_pagadas` == `unidades_promo_bonificadas`.
+    * Aplicar Regla 2.3: `precio_unitario_full` >= `costo_unitario`.
+    * Aplicar Regla 2.4: `utilidad` == `ingresos_totales` - `costo_total`.
+    * Aplicar Regla 2.5: `ingresos_totales` == (`unidades_precio_normal` + `unidades_promo_pagadas`) * `precio_unitario_full`.
+    * Aplicar Regla 2.6: `costo_total` == `total_unidades_entregadas` * `costo_unitario`.
+    * Aplicar Regla 2.7: NO valores negativos en columnas numéricas.
+    * Almacenar resultados de validación en `TABLE_ANALYSIS[table]['financial_health']`.
+
+* **Celda 17: Generación de Reporte JSON:**
     * Recopilar todos los diccionarios de resultados:
         * `download_details`
-        * `TABLE_ANALYSIS` (estadísticas, validaciones temporales, categoricas, outliers, varianza cero, cardinalidad, presencia de ceros, duplicados, nulos, centinelas, contrato de datos).
+        * `TABLE_ANALYSIS` (estadísticas, validaciones temporales, categoricas, outliers, varianza cero, cardinalidad, presencia de ceros, duplicados, nulos, centinelas, contrato de datos, salud financiera).
     * Estructurar el JSON final:
         ```json
         {

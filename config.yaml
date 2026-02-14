@@ -135,3 +135,10 @@ data_contract:
     inversion_facebook: float
     inversion_instagram: float
     inversion_total_diaria: float
+
+# -----------------------------------------------------------------------------
+# FINANCIAL HEALTH (Strict Business Rules)
+# -----------------------------------------------------------------------------
+financial_health:
+  target_files:
+    - ventas_diarias
