@@ -107,10 +107,30 @@ El notebook debe ser autocontenido y estructurado celda por celda:
         * Buscar coincidencias exactas con los valores centinela configurados para ese tipo.
         * Reportar: `{ "columna": "nombre", "valor_centinela": valor, "conteo": n }`.
 
-* **Celda 15: Generación de Reporte (JSON):**
-    * Consolidar toda la información recabada (Descargas, Validación, Estadísticas, Outliers, Varianza, Cardinalidad, Ceros, Duplicados, Nulos, Centinelas).
-    * Estructurar el JSON para incluir la sección `download_details` *antes* de `validation_details` y `statistics`.
+* **Celda 15: Validación de Contrato de Datos (Data Contract):**
+    * Leer sección `data_contract` desde `config.yaml`.
+    * Para cada archivo/tabla de datos fuente (`ventas_diarias`, `macro_economia`, `promocion_diaria`, `redes_sociales`):
+        * Validar que todas las columnas esperadas estén presentes.
+        * Validar que el tipo de datos coincida con lo esperado (`int`, `float`, `datetime`, `object`).
+        * Detectar y reportar columnas adicionales (extra columns) no definidas en el contrato.
+        * Generar estado `PASS` o `FAIL` para cada tabla.
+
+* **Celda 16: Generación de Reporte JSON:**
+    * Recopilar todos los diccionarios de resultados:
+        * `download_details`
+        * `TABLE_ANALYSIS` (estadísticas, validaciones temporales, categoricas, outliers, varianza cero, cardinalidad, presencia de ceros, duplicados, nulos, centinelas, contrato de datos).
+    * Estructurar el JSON final:
+        ```json
+        {
+          "phase": "Phase 1 - Data Discovery",
+          "timestamp": "ISO 8601",
+          "description": "...",
+          "download_details": [...],
+          "data_analysis": { ... }
+        }
+        ```
     * Guardar en `experiments/phase_01_discovery/artifacts/phase_01_discovery.json`.
+    * Imprimir mensaje de confirmación.
 
 ### Paso 3: Ejecución Manual y Verificación
 * **Acción:** El usuario abrirá y ejecutará manualmente el notebook `notebooks/01_data_discovery.ipynb`.
