@@ -26,11 +26,19 @@ description: Sube el proyecto a GitHub usando el servidor MCP de GitHub, manejan
 5. Agregar el origen remoto.
    - Comando: `git remote add origin <CLONE_URL>` (Reemplazar <CLONE_URL> con la URL obtenida)
 
-6. Preparar todos los archivos (Stage).
+6. Gestionar archivos ignorados (.gitignore).
+   - Revisar el estado actual con `git status`.
+   - Identificar archivos o carpetas que NO deben subirse (ej: `.env`, `__pycache__`, carpetas de salida `outputs/`, archivos temporales, builds).
+   - Si existen archivos que deben ignorarse pero no están en `.gitignore`, agregarlos al archivo `.gitignore`.
+   - Si algún archivo a ignorar YA está trackeado (indexado) en git:
+     - Ejecutar `git rm --cached <archivo>` para dejar de trackearlo sin borrarlo localmente.
+   - Verificar nuevamente con `git status` que los archivos ignorados ya no aparezcan como pendientes.
+
+7. Preparar todos los archivos (Stage).
    - Comando: `git add .`
 
-7. Confirmar los cambios usando la convención definida.
-   - Comando: `git commit -m "feat: Estructura inicial del proyecto y configuración"`
+8. Confirmar los cambios usando la convención definida.
+   - Comando: `git commit -m "feat: Estructura inicial del proyecto y configuración"` (O un mensaje más descriptivo según los cambios).
 
-8. Enviar al repositorio remoto.
+9. Enviar al repositorio remoto.
    - Comando: `git push -u origin main`
