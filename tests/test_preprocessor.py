@@ -6,6 +6,8 @@ import yaml
 from pathlib import Path
 from src.preprocessor import Preprocessor
 from src.utils import load_config
+from datetime import datetime
+from unittest.mock import patch
 
 # --- Fixtures ---
 
@@ -204,3 +206,33 @@ class TestPreprocessor:
         # Should be interpolated between 20 and 40 -> 30
         assert df_ventas["total_unidades_entregadas"].iloc[2] == 30.0
 
+    def test_anti_data_leakage(self, mock_config):
+        """Test anti-data leakage functionality."""
+        prep = Preprocessor(mock_config)
+        
+        # Scenario: Current date is 2023-05-15
+        mock_now = datetime(2023, 5, 15)
+        
+        # 1. Data ends in current month (2023-05-01) -> Should drop last row
+        dates_leak = pd.date_range("2023-01-01", "2023-05-01", freq="MS")
+        df_leak = pd.DataFrame({"val": range(5)}, index=dates_leak)
+        
+        # 2. Data ends in previous month (2023-04-01) -> Should keep all
+        dates_ok = pd.date_range("2023-01-01", "2023-04-01", freq="MS")
+        df_ok = pd.DataFrame({"val": range(4)}, index=dates_ok)
+
+        # Patch 'src.preprocessor.datetime'
+        # Since 'from datetime import datetime' is used in src/preprocessor.py,
+        # 'datetime' is a name in that namespace.
+        with patch('src.preprocessor.datetime') as mock_dt:
+            mock_dt.now.return_value = mock_now
+            
+            # Test 1: Leakage detected
+            res_leak = prep._apply_anti_leakage_rule(df_leak.copy())
+            assert len(res_leak) == 4
+            assert res_leak.index.max() == pd.Timestamp("2023-04-01")
+            
+            # Test 2: No leakage
+            res_ok = prep._apply_anti_leakage_rule(df_ok.copy())
+            assert len(res_ok) == 4
+            assert res_ok.index.max() == pd.Timestamp("2023-04-01")
