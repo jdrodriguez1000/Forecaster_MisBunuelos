@@ -75,6 +75,7 @@ class Preprocessor:
         self._aggregate_monthly()
         df_master = self._unify_sources()
         df_master = self._impute_post_merge(df_master)
+        df_master = self._apply_anti_leakage_rule(df_master)
         self._export_and_report(df_master)
         print("Preprocessing Pipeline Completed.")
 
@@ -441,6 +442,28 @@ class Preprocessor:
             print("Dataset clean.")
         return df_master
 
+    def _apply_anti_leakage_rule(self, df_master):
+        """
+        Applies the Anti-Data Leakage rule by removing the current incomplete month.
+        """
+        print("Applying Anti-Data Leakage Rule...")
+        current_date = datetime.now()
+        
+        if not df_master.empty:
+            # Ensure index is datetime
+            if not isinstance(df_master.index, pd.DatetimeIndex):
+                 print("WARNING: Index is not DatetimeIndex. Skipping Anti-Leakage check.")
+            else:
+                last_date = df_master.index.max() 
+                if last_date.year == current_date.year and last_date.month == current_date.month:
+                    print(f"  - Detected incomplete current month: {last_date.strftime('%Y-%m')}. Dropping to prevent leakage.")
+                    df_master = df_master.iloc[:-1]
+                else:
+                    print(f"  - Last month ({last_date.strftime('%Y-%m')}) is closed. No drop needed.")
+                
+        print(f"Final Master Dataset Shape (Closed Months): {df_master.shape}")
+        return df_master
+
     def _export_and_report(self, df_master):
         """Exports the master dataframe and generates a JSON report."""
         output_file = self.cleansed_data_path / "master_monthly.parquet"
@@ -503,7 +526,7 @@ class Preprocessor:
                 "pandas_version": pd.__version__
             },
             "execution_context": {
-                "description": "Limpieza exhaustiva, imputación de negocio y agregación mensual.",
+                "description": "Limpieza exhaustiva, imputación de negocio, agregación mensual y corte de mes en curso (Anti-Data Leakage).",
                 "validation_status": "SUCCESS" if total_nulls == 0 and is_series_complete and duplicate_dates_count == 0 else "WARNING"
             },
             "data_quality_audit": {

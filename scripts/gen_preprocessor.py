@@ -571,7 +571,28 @@ notebook_content = {
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Celda 14: Exportación\n",
+    "# Celda 14: Regla de Oro (Anti-Data Leakage)\n",
+    "print(\"Aplicando Regla de Oro: Eliminación del mes en curso (incompleto)...\")\n",
+    "current_date = datetime.now()\n",
+    "if not df_master.empty:\n",
+    "    last_date = df_master.index.max()\n",
+    "    # Verificar si el último mes del dataset coincide con el mes/año actual\n",
+    "    if last_date.year == current_date.year and last_date.month == current_date.month:\n",
+    "        print(f\"  - Detectado mes incompleto o en curso: {last_date.strftime('%Y-%m')}. Eliminando para evitar Data Leakage.\")\n",
+    "        df_master = df_master.iloc[:-1]\n",
+    "    else:\n",
+    "        print(f\"  - El último mes ({last_date.strftime('%Y-%m')}) es anterior al actual. No se requiere corte.\")\n",
+    "\n",
+    "print(f\"Dataset Maestro Final (Meses Cerrados): {df_master.shape}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Celda 15: Exportación\n",
     "output_file = CLEANSED_DATA_PATH / \"master_monthly.parquet\"\n",
     "df_master.to_parquet(output_file)\n",
     "print(f\"Guardado exitoso en: {output_file}\")"
@@ -583,7 +604,7 @@ notebook_content = {
    "metadata": {},
    "outputs": [],
    "source": [
-    "# Celda 15: Reporte JSON Detallado (Enhanced + Integrity Checks)\n",
+    "# Celda 16: Reporte JSON Detallado (Enhanced + Integrity Checks)\n",
     "import json\n",
     "import platform\n",
     "\n",
@@ -648,7 +669,7 @@ notebook_content = {
     "        \"pandas_version\": pd.__version__\n",
     "    },\n",
     "    \"execution_context\": {\n",
-    "        \"description\": \"Limpieza exhaustiva, imputación de negocio y agregación mensual.\",\n",
+    "        \"description\": \"Limpieza exhaustiva, imputación de negocio, agregación mensual y corte de mes en curso (Anti-Data Leakage).\",\n",
     "        \"validation_status\": \"SUCCESS\" if total_nulls == 0 and is_series_complete and duplicate_dates_count == 0 else \"WARNING\"\n",
     "    },\n",
 

@@ -25,6 +25,7 @@ Este flujo de trabajo migra la lógica de limpieza, imputación y agregación va
      - **Recálculo Financiero**: Si `recalc_financials=True`, recalcular costos, ingresos y utilidad para filas imputadas.
      - **Agregación Mensual**: Resample a 'MS' usando reglas específicas (ej: `sum`, `first`).
      - **Unificación (Merge)**: Join de ventas, marketing, promo y macro en un `master_monthly`.
+     - **Regla de Oro (Anti-Data Leakage)**: Eliminar el mes en curso si está incompleto (último registro del índice) antes de exportar.
      - **Exportación Elaborada**:
        - Guardar `data/02_cleansed/master_monthly.parquet`.
        - **Generar Reporte JSON Extendido**: Debe incluir:
