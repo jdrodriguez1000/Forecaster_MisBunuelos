@@ -25,7 +25,12 @@ Este flujo de trabajo migra la lógica de limpieza, imputación y agregación va
      - **Recálculo Financiero**: Si `recalc_financials=True`, recalcular costos, ingresos y utilidad para filas imputadas.
      - **Agregación Mensual**: Resample a 'MS' usando reglas específicas (ej: `sum`, `first`).
      - **Unificación (Merge)**: Join de ventas, marketing, promo y macro en un `master_monthly`.
-     - **Exportación**: Guardar `data/02_cleansed/master_monthly.parquet` y generar reporte JSON.
+     - **Exportación Elaborada**:
+       - Guardar `data/02_cleansed/master_monthly.parquet`.
+       - **Generar Reporte JSON Extendido**: Debe incluir:
+         - **Integridad**: `is_series_complete`, `missing_expected_dates`, `duplicate_dates`, `total_nulls`.
+         - **Muestras de Datos**: `head_5`, `tail_5`, `random_5` (serializadas, al final del JSON).
+         - **Schema**: Tipos de datos (`dtypes`).
 
 2. **Orquestar en `main.py`**
    - Actualizar `main.py` para importar el módulo `preprocessor`.

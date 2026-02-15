@@ -11,7 +11,8 @@ import json
 class Preprocessor:
     """
     Handles the preprocessing pipeline: loading, cleaning, validation, imputation,
-    and aggregation of raw data.
+    and aggregation of raw data. This class mirrors the logic validated in 
+    notebooks/02_preprocessing.ipynb.
     """
 
     def __init__(self, config: dict):
@@ -25,6 +26,7 @@ class Preprocessor:
         self.base_dir = Path(os.getcwd())
         self.raw_data_path = self.base_dir / "data" / "01_raw"
         self.cleansed_data_path = self.base_dir / "data" / "02_cleansed"
+        # Output artifacts to experiments/phase_02_preprocessing/artifacts for consistency with Lab-to-Prod
         self.artifacts_path = self.base_dir / "outputs" / "reports" / "phase_02_preprocessing"
         
         # Ensure output directories exist
@@ -35,7 +37,12 @@ class Preprocessor:
         self.stats_cleaning = {"duplicates": {}, "filtered": {}}
         self.sentinel_stats = {}
         self.reindex_stats = {}
-        self.imputed_sales_count = 0
+        self.imputation_stats = {
+            "macro": {},
+            "promo": {},
+            "marketing": {},
+            "ventas": {}
+        }
         self.file_map = {
             "ventas": "ventas_diarias",
             "marketing": "redes_sociales",
@@ -48,6 +55,7 @@ class Preprocessor:
             "promo": self.raw_data_path / "promocion_diaria.parquet",
             "macro": self.raw_data_path / "macro_economia.parquet"
         }
+        self.columns_removed_log = {}
 
 
     def run(self):
@@ -85,6 +93,7 @@ class Preprocessor:
         """Validates that loaded dataframes have the expected columns."""
         print("Validating Data Contracts...")
         data_contract = self.config.get("data_contract", {})
+        self.data_contract_status = {}
 
         for key, df in self.dataframes.items():
             config_name = self.file_map.get(key)
@@ -95,9 +104,11 @@ class Preprocessor:
             if missing_cols:
                 error_msg = f"CRITICAL ERROR in {key}: Missing columns {missing_cols}"
                 print(error_msg)
+                self.data_contract_status[key] = f"FAILED: Missing {missing_cols}"
                 raise RuntimeError(error_msg)
             else:
                 print(f"  - {key}: Contract Validation OK")
+                self.data_contract_status[key] = "OK"
 
     def _standardize_names(self):
         """Renames columns based on configuration and converts to snake_case."""
@@ -114,7 +125,6 @@ class Preprocessor:
     def _enforce_schema(self):
         """Selects only expected columns and logs removed ones."""
         print("Applying Schema Enforcement...")
-        columns_removed_log = {}
         data_contract = self.config.get("data_contract", {})
         rename_map = self.config.get("preprocessing", {}).get("rename_map") or {}
 
@@ -131,11 +141,11 @@ class Preprocessor:
             removed = [col for col in df.columns if col not in final_expected_cols]
             
             if removed:
-                columns_removed_log[key] = removed
+                self.columns_removed_log[key] = removed
             
             self.dataframes[key] = df[cols_to_keep].copy()
 
-        print("Columns removed:", columns_removed_log)
+        print("Columns removed:", self.columns_removed_log)
 
     def _clean_rows(self):
         """Removes duplicates and filters data by date."""
@@ -248,36 +258,45 @@ class Preprocessor:
         # --- Macro ---
         cols_num_macro = df_macro.select_dtypes(include=np.number).columns
         for col in cols_num_macro:
-            if df_macro[col].isna().any():
+            nulls_before = df_macro[col].isna().sum()
+            if nulls_before > 0:
                 df_macro[col] = df_macro[col].fillna(
                     df_macro[col].rolling(window=60, min_periods=1).mean().shift(1)
                 )
                 df_macro[col] = df_macro[col].fillna(method='bfill')
+                self.imputation_stats["macro"][col] = int(nulls_before)
 
         # --- Promos ---
         if "es_promo" in df_promo.columns:
             mask_null_promo = df_promo["es_promo"].isna()
-            if mask_null_promo.any():
+            count_promo_nulls = mask_null_promo.sum()
+            if count_promo_nulls > 0:
                 meses_promo = [4, 5, 9, 10]
                 months = df_promo["fecha"].dt.month
                 df_promo.loc[mask_null_promo & months.isin(meses_promo), "es_promo"] = 1
                 df_promo.loc[mask_null_promo & ~months.isin(meses_promo), "es_promo"] = 0
+                self.imputation_stats["promo"]["es_promo_inferred"] = int(count_promo_nulls)
 
         # --- Marketing ---
         target_col_campana = "ciclo" if "ciclo" in df_marketing.columns else "campana"
         mask_camp_null = df_marketing[target_col_campana].isna()
-        fb_val = df_marketing["inversion_facebook"].fillna(0)
-        ig_val = df_marketing["inversion_instagram"].fillna(0)
-        has_inv = (fb_val > 0) | (ig_val > 0)
+        count_campana_nulls = mask_camp_null.sum()
         
-        months = df_marketing["fecha"].dt.month
-        mask_abr_may = months.isin([3, 4, 5])
-        mask_sep_oct = months.isin([8, 9, 10])
-        
-        df_marketing.loc[mask_camp_null & has_inv & mask_abr_may, target_col_campana] = "Ciclo Abr-May"
-        df_marketing.loc[mask_camp_null & has_inv & mask_sep_oct, target_col_campana] = "Ciclo Sep-Oct"
-        df_marketing.loc[mask_camp_null & df_marketing[target_col_campana].isna(), target_col_campana] = "Sin Campaña"
+        if count_campana_nulls > 0:
+            fb_val = df_marketing["inversion_facebook"].fillna(0)
+            ig_val = df_marketing["inversion_instagram"].fillna(0)
+            has_inv = (fb_val > 0) | (ig_val > 0)
+            
+            months = df_marketing["fecha"].dt.month
+            mask_abr_may = months.isin([3, 4, 5])
+            mask_sep_oct = months.isin([8, 9, 10])
+            
+            df_marketing.loc[mask_camp_null & has_inv & mask_abr_may, target_col_campana] = "Ciclo Abr-May"
+            df_marketing.loc[mask_camp_null & has_inv & mask_sep_oct, target_col_campana] = "Ciclo Sep-Oct"
+            df_marketing.loc[mask_camp_null & df_marketing[target_col_campana].isna(), target_col_campana] = "Sin Campaña"
+            self.imputation_stats["marketing"]["campaigns_inferred"] = int(count_campana_nulls)
 
+        # Inversiones
         fechas = df_marketing["fecha"]
         rango1 = (((fechas.dt.month == 3) & (fechas.dt.day >= 15)) | (fechas.dt.month == 4) | ((fechas.dt.month == 5) & (fechas.dt.day <= 25)))
         rango2 = (((fechas.dt.month == 8) & (fechas.dt.day >= 15)) | (fechas.dt.month == 9) | ((fechas.dt.month == 10) & (fechas.dt.day <= 25)))
@@ -285,26 +304,35 @@ class Preprocessor:
         
         for col in ["inversion_facebook", "inversion_instagram"]:
             if col in df_marketing.columns:
-                mask_null_in_range = df_marketing[col].isna() & rango_activo
-                if mask_null_in_range.any():
-                    df_marketing[col] = df_marketing[col].interpolate(method='linear')
-                
-                mask_null_out_range = df_marketing[col].isna() & ~rango_activo
-                if mask_null_out_range.any():
-                    df_marketing.loc[mask_null_out_range, col] = 0
+                mask_null = df_marketing[col].isna()
+                count_inv_nulls = mask_null.sum()
+                if count_inv_nulls > 0:
+                    mask_null_in_range = mask_null & rango_activo
+                    if mask_null_in_range.any():
+                        df_marketing[col] = df_marketing[col].interpolate(method='linear')
+                    
+                    mask_null_out_range = mask_null & ~rango_activo
+                    if mask_null_out_range.any():
+                        df_marketing.loc[mask_null_out_range, col] = 0
+                    
+                    self.imputation_stats["marketing"][f"{col}_imputed"] = int(count_inv_nulls)
         
         target_col_marketing = "inversion_marketing_total" if "inversion_marketing_total" in df_marketing.columns else "inversion_total_diaria"
         if target_col_marketing in df_marketing.columns:
-             # Recalculate total if possible, otherwise keep as is
+             # Recalculate total if possible
              if "inversion_facebook" in df_marketing.columns and "inversion_instagram" in df_marketing.columns:
                 df_marketing[target_col_marketing] = df_marketing["inversion_facebook"] + df_marketing["inversion_instagram"]
         
         # --- Ventas Diarias ---
         self.imputed_sales_mask = df_ventas["total_unidades_entregadas"].isna()
+        self.imputation_stats["ventas"]["dates_missing_imputed"] = int(self.imputed_sales_mask.sum())
         
         for col in ["precio_unitario_full", "costo_unitario"]:
             if col in df_ventas.columns:
-                df_ventas[col] = df_ventas[col].ffill().bfill()
+                nulls = df_ventas[col].isna().sum()
+                if nulls > 0:
+                    df_ventas[col] = df_ventas[col].ffill().bfill()
+                    self.imputation_stats["ventas"][f"{col}_filled"] = int(nulls)
         
         if "total_unidades_entregadas" in df_ventas.columns:
             s_total = df_ventas["total_unidades_entregadas"]
@@ -335,28 +363,24 @@ class Preprocessor:
                 
                 idx = df_ventas[self.imputed_sales_mask].index
                 
-                # Check for necessary columns before calc
-                if {"total_unidades_entregadas", "costo_unitario", "unidades_precio_normal", "unidades_promo_pagadas", "precio_unitario_full"}.issubset(df_ventas.columns):
-                    df_ventas.loc[idx, "costo_total"] = (
-                        df_ventas.loc[idx, "total_unidades_entregadas"] * 
-                        df_ventas.loc[idx, "costo_unitario"]
-                    )
-                    
-                    unidades_pagas = (
-                        df_ventas.loc[idx, "unidades_precio_normal"] + 
-                        df_ventas.loc[idx, "unidades_promo_pagadas"]
-                    )
-                    
-                    df_ventas.loc[idx, "ingresos_totales"] = (
-                        unidades_pagas * df_ventas.loc[idx, "precio_unitario_full"]
-                    )
-                    
-                    df_ventas.loc[idx, "utilidad"] = (
-                        df_ventas.loc[idx, "ingresos_totales"] - 
-                        df_ventas.loc[idx, "costo_total"]
-                    )
-                else:
-                    print("Skipping recalculation due to missing columns.")
+                df_ventas.loc[idx, "costo_total"] = (
+                    df_ventas.loc[idx, "total_unidades_entregadas"] * 
+                    df_ventas.loc[idx, "costo_unitario"]
+                )
+                
+                unidades_pagas = (
+                    df_ventas.loc[idx, "unidades_precio_normal"] + 
+                    df_ventas.loc[idx, "unidades_promo_pagadas"]
+                )
+                
+                df_ventas.loc[idx, "ingresos_totales"] = (
+                    unidades_pagas * df_ventas.loc[idx, "precio_unitario_full"]
+                )
+                
+                df_ventas.loc[idx, "utilidad"] = (
+                    df_ventas.loc[idx, "ingresos_totales"] - 
+                    df_ventas.loc[idx, "costo_total"]
+                )
             else:
                 print("No imputed rows to recalculate.")
         else:
@@ -424,17 +448,52 @@ class Preprocessor:
         print(f"Saved to: {output_file}")
         
         final_shape = df_master.shape
+        
+        # 1. Validaciones Temporales
+        is_series_complete = False
+        missing_expected_dates = []
+        duplicate_dates_count = 0
+        date_min = "N/A"
+        date_max = "N/A"
+        total_months = 0
+
         if isinstance(df_master.index, pd.DatetimeIndex):
-            date_min = df_master.index.min().isoformat() if not df_master.empty else None
-            date_max = df_master.index.max().isoformat() if not df_master.empty else None
-        else:
-            date_min = None
-            date_max = None
-            
+            if not df_master.empty:
+                date_min = df_master.index.min().isoformat()
+                date_max = df_master.index.max().isoformat()
+                total_months = len(df_master)
+
+                # Chequear completitud (Freq MS)
+                expected_range = pd.date_range(start=df_master.index.min(), end=df_master.index.max(), freq='MS')
+                is_series_complete = len(expected_range) == len(set(df_master.index))
+                if not is_series_complete:
+                     missing_expected_dates = [d.isoformat() for d in set(expected_range) - set(df_master.index)]
+
+                # Chequear fechas duplicadas
+                duplicate_dates_count = int(df_master.index.duplicated().sum())
+
+        # 2. Integridad de Datos
+        duplicate_rows = int(df_master.duplicated().sum())
+        total_nulls = int(df_master.isna().sum().sum())
+        rows_with_nulls = int(df_master.isna().any(axis=1).sum())
+        column_types = df_master.dtypes.astype(str).to_dict()
         columns_list = df_master.columns.tolist()
-        missing_values = int(df_master.isna().sum().sum())
+
         file_size_bytes = output_file.stat().st_size if output_file.exists() else 0
         
+        # 3. Muestras de Datos (Serialize dates/timestamps for JSON)
+        def serialize_df(df_part):
+            # Convert timestamp index to string column for JSON
+            temp = df_part.copy()
+            if isinstance(temp.index, pd.DatetimeIndex):
+                temp = temp.reset_index()
+                temp['fecha'] = temp['fecha'].astype(str)
+            return temp.to_dict(orient='records')
+
+        head_5 = serialize_df(df_master.head(5))
+        tail_5 = serialize_df(df_master.tail(5))
+        random_5 = serialize_df(df_master.sample(5, random_state=42))
+
         report = {
             "phase": "Phase 2 - Preprocessing",
             "timestamp": datetime.now().isoformat(),
@@ -444,10 +503,14 @@ class Preprocessor:
                 "pandas_version": pd.__version__
             },
             "execution_context": {
-                "description": "Exhaustive cleaning, business imputation, and monthly aggregation.",
-                "validation_status": "SUCCESS" if missing_values == 0 else "WARNING_WITH_NULLS"
+                "description": "Limpieza exhaustiva, imputación de negocio y agregación mensual.",
+                "validation_status": "SUCCESS" if total_nulls == 0 and is_series_complete and duplicate_dates_count == 0 else "WARNING"
             },
             "data_quality_audit": {
+                "contract_validation": self.data_contract_status if hasattr(self, 'data_contract_status') else {},
+                "schema_enforcement": {
+                    "columns_removed": self.columns_removed_log
+                },
                 "cleaning_stats": {
                     "rows_filtered_logic": self.stats_cleaning.get("filtered", {}),
                     "duplicates_removed": self.stats_cleaning.get("duplicates", {}),
@@ -456,7 +519,8 @@ class Preprocessor:
                 },
                 "imputation_metrics": {
                     "financial_records_recalculated": int(self.imputed_sales_mask.sum()) if hasattr(self, 'imputed_sales_mask') else 0,
-                    "remaining_nulls_final": missing_values
+                    "remaining_nulls_final": total_nulls,
+                    "details": self.imputation_stats
                 }
             },
             "output_artifact_details": {
@@ -471,9 +535,25 @@ class Preprocessor:
                     "start_date": date_min,
                     "end_date": date_max,
                     "frequency": "MS (Month Start)",
-                    "total_months": len(df_master)
+                    "total_months": total_months,
+                    "is_series_complete": is_series_complete,
+                    "missing_expected_dates": missing_expected_dates,
+                    "duplicate_dates_count": duplicate_dates_count
                 },
-                "schema_columns": columns_list
+                "data_integrity": {
+                    "duplicate_rows": duplicate_rows,
+                    "rows_with_nulls": rows_with_nulls,
+                    "total_nulls": total_nulls
+                },
+                "schema": {
+                    "columns": columns_list,
+                    "dtypes": column_types
+                }
+            },
+            "sample_data": {
+                "head_5": head_5,
+                "tail_5": tail_5,
+                "random_5": random_5
             }
         }
         
@@ -482,4 +562,3 @@ class Preprocessor:
             json.dump(report, f, indent=4)
             
         print(f"Detailed Report generated at: {report_path}")
-
