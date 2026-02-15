@@ -12,7 +12,7 @@ Este flujo de trabajo ejecuta un script de Python que genera el notebook `notebo
 Ejecuta el script generador que crea el notebook con la lógica encapsulada.
 
 // turbo
-python scripts/gen_wf_preprocessing.py
+python scripts/gen_preprocessor.py
 
 ### Paso 2: Validación y Ejecución
 El notebook generado en `notebooks/02_preprocessing.ipynb` debe ser ejecutado para producir los datasets limpios y el reporte.

@@ -4,7 +4,7 @@ description: Refactorizar y Orquestar la Fase 1 (Discovery) de Notebook a Produc
 
 # Flujo de Trabajo: Fase de Descubrimiento en Producción (Refactorizar y Orquestar)
 
-Este flujo de trabajo migra la lógica de extracción de datos, validación y chequeos de salud desde `notebooks/01_data_discovery.ipynb` al código base de producción en `src/loader.py`.
+Este flujo de trabajo migra la lógica de extracción de datos, validación y chequeos de salud desde `notebooks/01_data_discovery.ipynb` (generado por `scripts/gen_discoverer.py`) al código base de producción en `src/loader.py`.
 
 ## Pasos
 

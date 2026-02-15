@@ -27,7 +27,7 @@ def main():
     # 2. Preprocessing
     if not args.phase or args.phase == "preprocessing":
         print("Running Phase 2: Preprocessing...")
-        from src.preprocessing import Preprocessor
+        from src.preprocessor import Preprocessor
         preprocessor = Preprocessor(config)
         preprocessor.run()
 

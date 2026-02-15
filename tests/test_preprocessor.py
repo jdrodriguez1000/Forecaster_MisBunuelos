@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import yaml
 from pathlib import Path
-from src.preprocessing import Preprocessor
+from src.preprocessor import Preprocessor
 from src.utils import load_config
 
 # --- Fixtures ---

@@ -4,11 +4,11 @@ description: Refactorizar y Orquestar la Fase 2 (Preprocessing) de Notebook a Pr
 
 # Flujo de Trabajo: Fase de Preprocesamiento en Producción (Refactorizar y Orquestar)
 
-Este flujo de trabajo migra la lógica de limpieza, imputación y agregación validada en `notebooks/02_preprocessing.ipynb` (generado por `scripts/gen_wf_preprocessing.py`) al código base de producción en `src/preprocessing.py`.
+Este flujo de trabajo migra la lógica de limpieza, imputación y agregación validada en `notebooks/02_preprocessing.ipynb` (generado por `scripts/gen_preprocessor.py`) al código base de producción en `src/preprocessor.py`.
 
 ## Pasos
 
-1. **Crear `src/preprocessing.py` (Refactor)**
+1. **Crear `src/preprocessor.py` (Refactor)**
    - El objetivo es trasladar la lógica secuencial del notebook a una clase robusta `Preprocessor` o funciones modulares.
    - **Funcionalidades Clave a Implementar (basadas en el notebook)**:
      - **Carga de Datos**: Leer parquets desde `data/01_raw/`.
@@ -28,11 +28,11 @@ Este flujo de trabajo migra la lógica de limpieza, imputación y agregación va
      - **Exportación**: Guardar `data/02_cleansed/master_monthly.parquet` y generar reporte JSON.
 
 2. **Orquestar en `main.py`**
-   - Actualizar `main.py` para importar el módulo `preprocessing`.
+   - Actualizar `main.py` para importar el módulo `preprocessor`.
    - Insertar la ejecución de la Fase 2 inmediatamente después de la Fase 1 (Discovery).
    - Asegurar que la configuración (`config.dict`) se pase correctamente.
 
-3. **Crear Pruebas Unitarias (`tests/test_preprocessing.py`)**
+3. **Crear Pruebas Unitarias (`tests/test_preprocessor.py`)**
    - Crear validaciones para:
      - **Contrato de Datos**: Fallo si faltan columnas críticas.
      - **Reindexado**: Verificar que no existan huecos de fechas en el output.
