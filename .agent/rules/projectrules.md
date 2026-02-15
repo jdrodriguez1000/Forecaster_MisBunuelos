@@ -20,7 +20,8 @@ Este archivo constituye la autoridad máxima de restricciones cognitivas y técn
     * `Ridge`, `RandomForestRegressor`, `LGBMRegressor`, `XGBRegressor`, `GradientBoostingRegressor` y `HistGradientBoostingRegressor`.
 * **Configuración:** Prohibido el uso de valores "hardcoded". Rutas, hiperparámetros, fechas de corte y nombres de variables deben residir en `config.yaml`.
 * **Idioma:** Código y estructura de archivos en **Inglés**; contexto y reglas de negocio en **Español**.
-* **Persistencia:** La fuente de verdad histórica es **Supabase (PostgreSQL)**.
+* **Persistencia:** La fuente de verdad histórica es **Supabase (PostgreSQL)**. La descarga de información debe ser estrictamente **incremental** (descargando solo la diferencia faltante), salvo en la carga inicial o cuando se fuerce una actualización completa.
+* **Optimización de Workflows:** Todo workflow que requiera la generación de notebooks debe utilizar scripts `.py` ubicados en `scripts/` (modo turbo) para generar las celdas programáticamente, minimizando así la longitud y complejidad del archivo de definición del workflow.
 
 ## 3. 🔬 Rigor en Ciencia de Datos y Validación
 * **Estrategia de Partición (Backtesting):** Se debe aplicar un esquema de validación cruzada temporal con lógica rodante (Rolling Window):
