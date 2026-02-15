@@ -1,3 +1,4 @@
+
 import argparse
 from src.utils import load_config, setup_logging
 
@@ -11,7 +12,7 @@ def main():
     
     # Parse arguments provided by the user (if any)
     parser = argparse.ArgumentParser(description="Forecaster Mis Bunuelos Orchestrator")
-    parser.add_argument("--phase", type=str, help="Specify the phase to run (e.g., 'preprocessing', 'training')")
+    parser.add_argument("--phase", type=str, help="Specify the phase to run (e.g., 'discovery', 'preprocessing', 'training')")
     args = parser.parse_args()
     
     print("Starting Forecaster Pipeline...")
@@ -24,6 +25,11 @@ def main():
         loader.run()
 
     # 2. Preprocessing
+    if not args.phase or args.phase == "preprocessing":
+        print("Running Phase 2: Preprocessing...")
+        from src.preprocessing import Preprocessor
+        preprocessor = Preprocessor(config)
+        preprocessor.run()
 
 if __name__ == "__main__":
     main()
