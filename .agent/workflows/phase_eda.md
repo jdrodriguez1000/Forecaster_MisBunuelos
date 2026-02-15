@@ -15,7 +15,7 @@ Se ejecuta el script `scripts/gen_eda.py` que:
 3.  Crea la lógica de partición Train/Val/Test.
 
 // turbo
-python scripts/gen_eda.py
+python scripts/gen_eda.py; jupyter nbconvert --to notebook --execute notebooks/03_eda.ipynb --inplace; if (Test-Path notebooks/03_eda_executed.ipynb) { rm notebooks/03_eda_executed.ipynb }
 
 ### Paso 2: Validación Visual
 El usuario debe abrir `notebooks/03_eda.ipynb`, ejecutar las celdas y registrar las conclusiones de negocio al final del mismo.
