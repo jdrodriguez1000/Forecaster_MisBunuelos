@@ -13,6 +13,18 @@ project:
 # -----------------------------------------------------------------------------
 # INFRASTRUCTURE & PATHS
 # -----------------------------------------------------------------------------
+visualization:
+  style: "seaborn-v0_8-darkgrid"
+  palette: "viridis"
+  figsize_large: [15, 8]
+  figsize_small: [10, 6]
+  colors:
+    train: "#1f77b4"
+    val: "#ff7f0e"
+    test: "#2ca02c"
+    forecast: "#d62728"
+    pandemic_highlight: "#d62728" # Red alpha
+
 paths:
   data:
     base: data/
@@ -90,6 +102,10 @@ business_events:
   macro_projection:
     method: MA
     window_size: 2  # Promedio Móvil Recursivo de 2 meses
+  pandemic:
+    start_date: "2020-04-01"
+    end_date: "2021-05-31"
+    label: "Covid-19 Impact"
 
 # -----------------------------------------------------------------------------
 # DATA QUALITY (Discovery & Audit)

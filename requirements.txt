@@ -11,3 +11,4 @@ xgboost
 lightgbm
 pyarrow
 ipykernel
+statsmodels
