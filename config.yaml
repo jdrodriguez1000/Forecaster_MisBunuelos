@@ -131,10 +131,10 @@ data_contract:
     es_promo: int
   redes_sociales:
     fecha: datetime
-    campaña: object
+    ciclo: object
     inversion_facebook: float
     inversion_instagram: float
-    inversion_total_diaria: float
+    inversion_total: float
 
 # -----------------------------------------------------------------------------
 # FINANCIAL HEALTH (Strict Business Rules)
@@ -156,8 +156,7 @@ preprocessing:
   
   # Mapa de Renombramiento (Sanitización)
   rename_map:
-    "campaña": "campana"
-    "inversion_total_diaria": "inversion_marketing_total"
+    # "columna_origen": "columna_destino" (Vacío si ya coinciden)
 
   # Filtrado de Ruido
   filters:
@@ -183,7 +182,7 @@ preprocessing:
     # Marketing
     inversion_facebook: "sum"
     inversion_instagram: "sum"
-    inversion_marketing_total: "sum"
+    inversion_total: "sum"
     
     # Promos
     es_promo: "sum" # Días en promo

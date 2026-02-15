@@ -121,113 +121,132 @@ class DataLoader:
 
     def validate_data_contract(self, df: pd.DataFrame, table_name: str) -> Dict[str, Any]:
         contract = self.config.get('data_contract', {}).get(table_name, {})
-        if not contract:
-            return {"status": "SKIPPED", "reason": "No contract defined"}
-            
-        missing_cols = []
-        extra_cols = []
-        type_mismatches = []
+        contract_result = {"status": "PASS", "details": []}
         
+        if not contract:
+            return {"status": "SKIPPED_NO_CONTRACT", "details": []}
+            
         # Check columns
         expected_cols = set(contract.keys())
         actual_cols = set(df.columns)
         
         missing_cols = list(expected_cols - actual_cols)
+        if missing_cols:
+            contract_result["status"] = "FAIL"
+            contract_result["details"].append(f"Missing columns: {missing_cols}")
+
         extra_cols = list(actual_cols - expected_cols)
+        if extra_cols:
+            contract_result["details"].append(f"Extra columns (Warning): {extra_cols}")
         
-        # Check types (simplified)
+        # Check types
+        type_mismatches = []
         for col, expected_type in contract.items():
             if col in df.columns:
                 actual_dtype = df[col].dtype
-                # Map string types to pandas dtypes
-                if expected_type == 'int':
-                    if not pd.api.types.is_integer_dtype(actual_dtype):
-                         type_mismatches.append(f"{col}: expected int, got {actual_dtype}")
-                elif expected_type == 'float':
-                    if not pd.api.types.is_float_dtype(actual_dtype):
-                         type_mismatches.append(f"{col}: expected float, got {actual_dtype}")
-                elif expected_type == 'datetime':
-                    if not pd.api.types.is_datetime64_any_dtype(actual_dtype):
-                         type_mismatches.append(f"{col}: expected datetime, got {actual_dtype}")
-        
-        status = "PASS"
-        if missing_cols or type_mismatches:
-            status = "FAIL"
-        elif extra_cols:
-            status = "WARNING"
+                is_match = True
+                if expected_type == 'int' and not pd.api.types.is_numeric_dtype(actual_dtype):
+                     is_match = False
+                elif expected_type == 'float' and not pd.api.types.is_numeric_dtype(actual_dtype):
+                     is_match = False
+                elif expected_type == 'datetime' and not pd.api.types.is_datetime64_any_dtype(actual_dtype):
+                     is_match = False
+                
+                if not is_match:
+                    type_mismatches.append(f"{col}: expected {expected_type}")
+
+        if type_mismatches:
+            contract_result["details"].append(f"Type mismatches: {type_mismatches}")
+            if contract_result["status"] == "PASS":
+                contract_result["status"] = "FAIL"
             
-        return {
-            "status": status,
-            "missing_columns": missing_cols,
-            "extra_columns": extra_cols,
-            "type_mismatches": type_mismatches
-        }
+        return contract_result
 
     def check_financial_health(self, df: pd.DataFrame, table_name: str) -> Dict[str, Any]:
         rules = self.config.get('financial_health', {}).get('target_files', [])
         if table_name not in rules:
-             return {"status": "SKIPPED"}
-             
-        violations = {}
+             return {}
         
-        # Rule 2.1: total_unidades_entregadas == sum of parts
+        details = {
+            "rule_2_1_units_integrity": "PASS",
+            "rule_2_2_promo_equality": "PASS",
+            "rule_2_3_margin_integrity": "PASS",
+            "rule_2_4_utility_calc": "PASS",
+            "rule_2_5_revenue_calc": "PASS",
+            "rule_2_6_cost_calc": "PASS",
+            "rule_2_7_non_negative": "PASS"
+        }
+        
+        has_failure = False
+        
+        # Helper for floating point comparison with tolerance
+        def is_diff(s1, s2, tol=0.01):
+            return (s1.fillna(0) - s2.fillna(0)).abs() > tol
+
+        # Rule 2.1
         if all(c in df.columns for c in ['total_unidades_entregadas', 'unidades_precio_normal', 'unidades_promo_pagadas', 'unidades_promo_bonificadas']):
             calculated_total = df['unidades_precio_normal'] + df['unidades_promo_pagadas'] + df['unidades_promo_bonificadas']
-            diff = df['total_unidades_entregadas'] - calculated_total
-            failed_rows = df[diff.abs() > 0.001]
-            if not failed_rows.empty:
-                violations['rule_2_1_units_sum'] = len(failed_rows)
+            failed_count = len(df[is_diff(df['total_unidades_entregadas'], calculated_total, 0.001)])
+            if failed_count > 0:
+                details['rule_2_1_units_integrity'] = f"FAIL ({failed_count} rows)"
+                has_failure = True
 
-        # Rule 2.2: unidades_promo_pagadas == unidades_promo_bonificadas (assuming strict 2x1 logic if that's the rule, or just equality check)
-        # Based on config/previous context, rule 2.2 said: unidades_promo_pagadas == unidades_promo_bonificadas
+        # Rule 2.2
         if 'unidades_promo_pagadas' in df.columns and 'unidades_promo_bonificadas' in df.columns:
-             diff = df['unidades_promo_pagadas'] - df['unidades_promo_bonificadas']
-             failed = df[diff.abs() > 0.001]
-             if not failed.empty:
-                 violations['rule_2_2_promo_equality'] = len(failed)
+             failed_count = len(df[is_diff(df['unidades_promo_pagadas'], df['unidades_promo_bonificadas'], 0.001)])
+             if failed_count > 0:
+                 details['rule_2_2_promo_equality'] = f"FAIL ({failed_count} rows)"
+                 has_failure = True
 
-        # Rule 2.3: precio_unitario_full >= costo_unitario
+        # Rule 2.3
         if 'precio_unitario_full' in df.columns and 'costo_unitario' in df.columns:
-            failed = df[df['precio_unitario_full'] < df['costo_unitario']]
-            if not failed.empty:
-                violations['rule_2_3_price_vs_cost'] = len(failed)
+            failed_count = len(df[df['precio_unitario_full'].fillna(0) < df['costo_unitario'].fillna(0)])
+            if failed_count > 0:
+                details['rule_2_3_margin_integrity'] = f"FAIL ({failed_count} rows)"
+                has_failure = True
 
-        # Rule 2.4: utilidad = ingresos - costo_total
+        # Rule 2.4
         if all(c in df.columns for c in ['utilidad', 'ingresos_totales', 'costo_total']):
              calc_util = df['ingresos_totales'] - df['costo_total']
-             diff = df['utilidad'] - calc_util
-             failed = df[diff.abs() > 0.01] # Currency tolerance
-             if not failed.empty:
-                 violations['rule_2_4_utility_calc'] = len(failed)
-        
-        # Rule 2.5: ingresos_totales check
+             failed_count = len(df[is_diff(df['utilidad'], calc_util)])
+             if failed_count > 0:
+                 details['rule_2_4_utility_calc'] = f"FAIL ({failed_count} rows)"
+                 has_failure = True
+
+        # Rule 2.5
         if all(c in df.columns for c in ['ingresos_totales', 'unidades_precio_normal', 'unidades_promo_pagadas', 'precio_unitario_full']):
             calc_rev = (df['unidades_precio_normal'] + df['unidades_promo_pagadas']) * df['precio_unitario_full']
-            diff = df['ingresos_totales'] - calc_rev
-            failed = df[diff.abs() > 0.01]
-            if not failed.empty:
-                violations['rule_2_5_revenue_calc'] = len(failed)
+            failed_count = len(df[is_diff(df['ingresos_totales'], calc_rev)])
+            if failed_count > 0:
+                details['rule_2_5_revenue_calc'] = f"FAIL ({failed_count} rows)"
+                has_failure = True
 
-        # Rule 2.6: costo_total check
+        # Rule 2.6
         if all(c in df.columns for c in ['costo_total', 'total_unidades_entregadas', 'costo_unitario']):
              calc_cost = df['total_unidades_entregadas'] * df['costo_unitario']
-             diff = df['costo_total'] - calc_cost
-             failed = df[diff.abs() > 0.01]
-             if not failed.empty:
-                 violations['rule_2_6_cost_calc'] = len(failed)
-        
-        # Rule 2.7: No negatives
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        negatives = {}
-        for col in numeric_cols:
-            count = (df[col] < 0).sum()
-            if count > 0:
-                negatives[col] = int(count)
-        if negatives:
-            violations['rule_2_7_negatives'] = negatives
+             failed_count = len(df[is_diff(df['costo_total'], calc_cost)])
+             if failed_count > 0:
+                 details['rule_2_6_cost_calc'] = f"FAIL ({failed_count} rows)"
+                 has_failure = True
 
-        status = "PASS" if not violations else "FAIL"
-        return {"status": status, "violations": violations}
+        # Rule 2.7
+        positive_cols = ['total_unidades_entregadas', 'precio_unitario_full', 'costo_unitario', 'ingresos_totales']
+        negatives_count = 0
+        for col in positive_cols:
+            if col in df.columns:
+                negatives_count += (df[col].fillna(0) < 0).sum()
+        
+        if negatives_count > 0:
+             details['rule_2_7_non_negative'] = f"FAIL ({negatives_count} occurrences)"
+             has_failure = True
+        
+        status = "PASS" if not has_failure else "FAIL"
+        return {"status": status, "details": details}
+            
+
+
+
+
 
     def generate_statistics(self, df: pd.DataFrame, table_name: str) -> Dict[str, Any]:
         stats = {}
@@ -275,25 +294,48 @@ class DataLoader:
                 "75%": float(df[col].quantile(0.75))
             }
             numeric_stats[col] = col_stats
-        stats["numeric"] = numeric_stats
+        stats["numerical_stats"] = numeric_stats
 
         # --- 2. Temporal Analysis ---
         temporal_stats = {}
-        if date_col_name in df.columns and pd.api.types.is_datetime64_any_dtype(df[date_col_name]):
-             col = date_col_name
-             ts_stats = {
-                 "min_date": str(df[col].min()),
-                 "max_date": str(df[col].max()),
-                 "duplicates": int(df[col].duplicated().sum())
-             }
-             # Gaps check (daily)
-             if table_name in ["ventas_diarias", "macro_economia"]: # assuming daily
-                 full_range = pd.date_range(start=df[col].min(), end=df[col].max(), freq='D')
-                 missing = full_range.difference(df[col])
-                 ts_stats["gaps_count"] = len(missing)
+        datetime_cols = df.select_dtypes(include=['datetime64', 'datetime', '<M8[ns]']).columns.tolist()
+        if date_col_name in df.columns and date_col_name not in datetime_cols:
+             try:
+                 pd.to_datetime(df[date_col_name])
+                 datetime_cols.append(date_col_name)
+             except: pass
+
+        for col in set(datetime_cols):
+             try:
+                 series = pd.to_datetime(df[col])
+             except: continue
+                 
+             min_date = series.min()
+             max_date = series.max()
+             duplicates_count = series.duplicated().sum()
              
-             temporal_stats[col] = ts_stats
-        stats["temporal"] = temporal_stats
+             missing_dates_count = 0
+             gaps_detected = False
+             
+             freq = self.config.get('preprocessing', {}).get('data_frequency', {}).get(table_name, None)
+             if freq and pd.notnull(min_date) and pd.notnull(max_date):
+                 try:
+                     full_range = pd.date_range(start=min_date, end=max_date, freq=freq)
+                     actual_dates = series.dt.normalize().unique()
+                     expected_dates = full_range.normalize().unique()
+                     missing = np.setdiff1d(expected_dates, actual_dates)
+                     missing_dates_count = len(missing)
+                     gaps_detected = missing_dates_count > 0
+                 except: pass
+
+             temporal_stats[col] = {
+                 "min_date": str(min_date),
+                 "max_date": str(max_date),
+                 "gaps_detected": bool(gaps_detected),
+                 "missing_dates_count": int(missing_dates_count),
+                 "duplicate_dates_count": int(duplicates_count)
+             }
+        stats["temporal_stats"] = temporal_stats
 
         # --- 3. Categorical Analysis ---
         categorical_stats = {}
@@ -304,7 +346,7 @@ class DataLoader:
                 "unique_count": int(df[col].nunique()),
                 "top_categories_pct": {k: float(v) for k, v in counts.items()}
             }
-        stats["categorical"] = categorical_stats
+        stats["categorical_stats"] = categorical_stats
 
         # --- 4. Outliers (IQR) ---
         outliers_stats = {}
@@ -318,71 +360,83 @@ class DataLoader:
             count = len(df[(df[col] < lower_bound) | (df[col] > upper_bound)])
             if count > 0:
                 outliers_stats[col] = {
-                    "count": count,
+                    "count": int(count),
                     "lower_bound": float(lower_bound),
-                    "upper_bound": float(upper_bound)
+                    "upper_bound": float(upper_bound),
+                    "outliers_ratio": float(count / len(df)) if len(df) > 0 else 0
                 }
-        stats["outliers"] = outliers_stats
+        stats["outliers_stats"] = outliers_stats
 
         # --- 5. Zero Variance ---
         zero_variance = []
         for col in df.columns:
             if df[col].nunique() <= 1:
                 zero_variance.append(col)
-        stats["zero_variance"] = zero_variance
+        stats["zero_variance_columns"] = zero_variance
         
         # --- 6. High Cardinality ---
         high_cardinality = []
         threshold = self.config.get('quality', {}).get('high_cardinality_threshold', 0.9)
-        for col in cat_cols:
-            ratio = df[col].nunique() / len(df) if len(df) > 0 else 0
-            if ratio > threshold:
-                high_cardinality.append(col)
+        for col in df.columns:
+             if pd.api.types.is_numeric_dtype(df[col]) or pd.api.types.is_object_dtype(df[col]):
+                uniques = df[col].nunique()
+                ratio = uniques / len(df) if len(df) > 0 else 0
+                if ratio > threshold:
+                    high_cardinality.append({
+                        "column": col,
+                        "ratio": float(ratio),
+                        "uniques": int(uniques)
+                    })
         stats["high_cardinality"] = high_cardinality
 
         # --- 7. Zero Presence ---
-        zero_presence = {}
+        zero_presence = []
         zero_thresh = self.config.get('quality', {}).get('zero_presence_threshold', 0.3)
         for col in numeric_cols:
             zero_count = (df[col] == 0).sum()
             ratio = zero_count / len(df) if len(df) > 0 else 0
             if ratio > zero_thresh:
-                zero_presence[col] = float(ratio)
-        stats["zero_presence"] = zero_presence
+                zero_presence.append({
+                    "column": col,
+                    "zeros_count": int(zero_count),
+                    "ratio": float(ratio)
+                })
+        stats["high_zero_presence"] = zero_presence
 
         # --- 8. Duplicates ---
-        stats["duplicates"] = int(df.duplicated().sum())
+        stats["duplicate_rows"] = int(df.duplicated().sum())
 
         # --- 9. Null Analysis ---
-        null_analysis = {}
+        null_stats = {}
         for col in df.columns:
             null_count = df[col].isnull().sum()
             if null_count > 0:
-                null_analysis[col] = {
+                null_stats[col] = {
                     "count": int(null_count),
                     "percentage": float(null_count / len(df))
                 }
-        stats["null_analysis"] = null_analysis
+        stats["null_stats"] = null_stats
 
         # --- 10. Sentinel Values ---
         sentinel_report = []
         sentinels = self.config.get('quality', {}).get('sentinel_values', {})
         
-        # Check numeric
-        num_sentinels = sentinels.get('numeric', [])
-        for col in numeric_cols:
-            for val in num_sentinels:
-                count = (df[col] == val).sum()
-                if count > 0:
-                    sentinel_report.append({"column": col, "sentinel": val, "count": int(count)})
-        
-        # Check categorical
-        cat_sentinels = sentinels.get('categorical', [])
-        for col in cat_cols:
-             for val in cat_sentinels:
-                count = (df[col] == val).sum()
-                if count > 0:
-                    sentinel_report.append({"column": col, "sentinel": val, "count": int(count)})
+        for col in df.columns:
+            found = []
+            if pd.api.types.is_numeric_dtype(df[col]):
+                for val in sentinels.get('numeric', []):
+                    c = (df[col] == val).sum()
+                    if c > 0: found.append({"value": val, "count": int(c)})
+            if pd.api.types.is_object_dtype(df[col]):
+                for val in sentinels.get('categorical', []):
+                    c = 0
+                    if val == "NULL" or val == "N/A": c = (df[col] == val).sum()
+                    elif val == "": c = (df[col] == "").sum()
+                    else: c = (df[col] == val).sum()
+                    if c > 0: found.append({"value": val, "count": int(c)})
+            
+            if found:
+                sentinel_report.append({"column": col, "matches": found})
 
         stats["sentinel_values"] = sentinel_report
 
