@@ -65,10 +65,15 @@ El auditor debe leer y analizar los siguientes componentes antes de emitir un ju
 * **Identificación de Brechas (The Gaps)**: Reportar falta de visualizaciones específicas o análisis de causalidad incompleto.
 
 ### Phase 04: Featurer (Feature Engineering)
-* **Check Crítico**: Validar la existencia de `phase_04_features.json`. Si no existe, estado **CRÍTICO**.
-* **Análisis**: 
-    - Verificar creación de variables clave: `is_promo_season`, `is_pandemic`, `novenas`, `primas`.
-    - Validar proyección de exógenas mediante $MA(2)$.
+* **Check Crítico**: Validar la existencia de `phase_04_feature_engineering.json`. Si no existe, estado **CRÍTICO**.
+* **Análisis de Rigor**:
+    - **Variables Cíclicas**: Confirmar presencia de `month_sin/cos`, `quarter_sin/cos` y `semester_sin/cos`.
+    - **Banderas de Negocio**: Validar `is_novenas`, `is_primas` e `is_pandemic` según reglas del `config.yaml`.
+    - **Marketing Lags**: Verificar que `inversion_total_lag_1` no contiene nulos (`nulls_check == 0`).
+    - **Auditoría de Datos**: Analizar `data_preview` (head, tail, sample) para detectar anomalías visuales en la construcción de variables.
+* **Análisis de Triangulación**:
+    - Cruzar las nuevas features con el `Project_Charter.md` para asegurar que todas las hipótesis de negocio (ej. impacto de primas) están representadas.
+    - Evaluar las gráficas en `experiments/phase_04_feature_engineering/figures/` (Validación de eventos y Ciclos).
 
 ## 4. 📝 Estructura de Salida (Reportes en docs/)
 Cada auditoría debe generar un archivo con el siguiente formato:

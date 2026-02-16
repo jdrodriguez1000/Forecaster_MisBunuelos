@@ -1,30 +1,34 @@
-# Reporte de Auditoría: Phase 02 - Preprocessing
-**Utilidad:** Validación de la limpieza, agregación mensual y cumplimiento de la regla anti-leakage.
-**Fecha de Auditoría:** 2026-02-16
-**Archivo Fuente:** phase_02_preprocessing.json
-**Fecha de Creación Fuente:** 2026-02-15T17:36:49.215981
----
+# Auditoría de Calidad: Fase 2 - Preprocessing
 
-## 1. Resumen Ejecutivo
-**Estado:** ✅ **APROBADO**
+## 1. Resumen de Ejecución
+- **Timestamp**: 2026-02-15T17:36:49.215981
+- **Status**: ✅ EXITOSO
+- **Descripción**: Limpieza exhaustiva, imputación de negocio, agregación mensual y corte de mes en curso (Anti-Data Leakage).
 
-El preprocesamiento se ejecutó correctamente siguiendo la metodología Lab-to-Prod. El dataset resultante está limpio de columnas innecesarias y agregado a la granularidad mensual requerida para el entrenamiento del sistema de forecasting.
+## 2. Cuadrante de Limpieza (Cleaning Stats)
+| Fase | Duplicados Removidos | Centinelas Reemplazados | Gaps Reindexados | Filas Filtradas Logic |
+| :--- | :---: | :---: | :---: | :---: |
+| Ventas | 0 | 0 | 0 | 0 |
+| Marketing | 0 | 0 | 0 | 0 |
+| Promo | 0 | 0 | 0 | 0 |
+| Macro | 0 | 0 | 0 | 0 |
 
-## 2. Lo Bueno (The Good)
-* **Regla Anti-Data Leakage:** El corte se realizó al finalizar Enero de 2026, cumpliendo con la regla de oro de detenerse en el mes $X-1$ para evitar usar información parcial del futuro.
-* **Agregación Mensual:** El dataset final cuenta con 97 meses con frecuencia `MS (Month Start)`, garantizando consistencia para `skforecast`.
-* **Schema Enforcement:** Se eliminaron las columnas de `id` y metadatos innecesarios, dejando solo 18 variables relevantes.
-* **Integridad:** No existen nulos finales en el archivo `master_monthly.parquet`.
+## 3. Integridad de Parámetros de Salida
+- **Archivo Final**: `master_monthly.parquet`
+- **Dimensiones**: 97 filas, 18 columnas.
+- **Rango Temporal**: 2018-01-01 a 2026-01-01.
+- **Frecuencia**: MS (Month Start) - Correcto.
+- **Nulos Finales**: 0 (Imputación exitosa).
 
-## 3. Lo No Tan Bueno (The Bad)
-* **Tratamiento de Centinelas:** Aunque se detectaron centinelas en la Fase 01, la estadística de limpieza reporta `0` valores reemplazados, lo que indica que fueron manejados implícitamente por la agregación o que el filtro de carga inicial fue suficiente.
-* **Columnas Extra:** Se reportaron columnas extra en el contrato de datos inicial (`id`), las cuales fueron removidas manualmente.
+## 4. Auditoría de Salud Financiera y Schema
+- **Validación de Contrato**: Todas las tablas (Ventas, Marketing, Promo, Macro) pasaron como OK.
+- **Schema Enforcement**: Se removió la columna `id` de todas las tablas exitosamente.
+- **Anti-Data Leakage**: El corte al 2026-01-01 es correcto dado que el último dato de ventas diario era del 10 de febrero.
 
-## 4. Análisis del Dataset Resultante
-* **Cobertura Temporal:** Enero 2018 a Enero 2026.
-* **Variable Objetivo Agregada:** La venta mensual promedio histórica es de gran escala, permitiendo al modelo capturar tendencias de largo plazo.
-* **Marketing:** Se integró correctamente la inversión de Facebook e Instagram a nivel mensual.
+## 5. Auditoría de Imputación
+- **Financial Records Recalculated**: 0.
+- **Dates Missing Imputed**: 0.
+- La serie temporal está completa y sin huecos (`is_series_complete: true`).
 
-## 5. Recomendaciones
-1. Proceder con el análisis exploratorio visual (EDA) sobre el archivo `data/02_cleansed/master_monthly.parquet`.
-2. Validar en el EDA si la inversión en RRSS tiene una correlación directa con los picos de ventas mensuales.
+## 6. Conclusión Técnica
+La fase de preprocesamiento ha generado un dataset maestro limpio y consolidado. Se ha cumplido estrictamente la regla de Anti-Data Leakage y la integridad de los datos es total. Lista para la fase de EDA.

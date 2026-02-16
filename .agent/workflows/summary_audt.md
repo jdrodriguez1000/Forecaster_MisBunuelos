@@ -38,10 +38,14 @@ Este workflow automatiza la revisión de los artefactos generados en el laborato
     - Generar `docs/phase_03_eda.md` con un enfoque táctico para la siguiente fase.
 
 ### 5. Auditoría de la Fase 04: Featurer
-* **Ruta**: `experiments/phase_04_features/artifacts/`
-* Buscar `phase_04_features.json`.
+* **Ruta**: `experiments/phase_04_feature_engineering/artifacts/` y `experiments/phase_04_feature_engineering/figures/`
+* **Buscar**: `phase_04_feature_engineering.json`.
 * **Acción**: 
-    - Si existe: Analizar y generar `docs/phase_04_featurer.md`.
+    - Si existe: 
+        - Analizar tipos de datos y previsualización de `data_preview`.
+        - Validar la representatividad de las 10 nuevas variables.
+        - Analizar proactivamente las 3 gráficas críticas: `01_validacion_eventos.png`, `02_ciclos_mensuales.png` y `03_correlacion_features.png`.
+        - Generar `docs/phase_04_featurer.md`.
     - Si NO existe: Notificar estado **CRÍTICO**.
 
 ### 6. Finalización

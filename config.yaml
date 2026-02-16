@@ -104,8 +104,34 @@ business_events:
     window_size: 2  # Promedio Móvil Recursivo de 2 meses
   pandemic:
     start_date: "2020-04-01"
-    end_date: "2021-05-31"
+    end_date: "2021-12-31" # Extendido para cubrir el periodo de shock completo analizado en el EDA
     label: "Covid-19 Impact"
+
+# -----------------------------------------------------------------------------
+# FEATURE ENGINEERING (Phase 4)
+# -----------------------------------------------------------------------------
+feature_engineering:
+  cyclical_columns:
+    - "month"
+    - "quarter"
+    - "semester"
+  
+  binary_features:
+    is_novenas: true
+    is_primas: true
+    is_pandemic: true
+    
+  marketing_lags:
+    - column: "inversion_total"
+      lag: 1
+      fill_value: 0 # Backfill for the first row effectively results in 0 given the data history
+  
+  exogenous_to_keep:
+    - "ipc_mensual"
+    - "tasa_desempleo"
+    - "confianza_consumidor"
+    - "dias_en_promo"
+    - "trm_promedio"
 
 # -----------------------------------------------------------------------------
 # DATA QUALITY (Discovery & Audit)
