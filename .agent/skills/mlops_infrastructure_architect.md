@@ -19,14 +19,14 @@ Define el ecosistema de desarrollo siguiendo el ciclo: **Notebook -> Refactor ->
 ### Módulos de Producción (`src/`)
 1. **`connectors/supabase_connector.py`**: Gestión de conexiones a Supabase y carga de variables de entorno.
 2. **`loader.py`**: Encargado de cargar los datos desde la base de datos (Supabase).
-3. **`preprocessing.py`**: Lógica de limpieza, tratamiento de centinelas y agregación mensual.
+3. **`preprocessor.py`**: Lógica de limpieza, tratamiento de centinelas y agregación mensual.
 4. **`features.py`**: Ingeniería de variables (Novenas, Primas, etc.) y proyecciones macro $MA(2)$.
 5. **`models.py`**: Entrenamiento, Backtesting rodante (Rolling) y generación de pronósticos.
 6. **`utils.py`**: Helpers compartidos para logging, manejo de JSON y lectura de `config.yaml`.
 
 ### Capa de Validación (`tests/`)
 Cada módulo en `src/` debe tener su espejo de pruebas unitarias para cerrar la fase:
-* `test_preprocessing.py`, `test_features.py`, `test_models.py`, `test_main.py`.
+* `test_loader.py`, `test_preprocessor.py`, `test_features.py`, `test_models.py`.
 * **Herramienta**: Ejecución obligatoria vía `pytest`.
 
 ## 🤖 Protocolos de Comunicación y Configuración

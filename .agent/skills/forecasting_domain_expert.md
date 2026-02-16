@@ -20,7 +20,8 @@ Para completar el dataset en el horizonte de 6 meses (donde no hay datos reales 
 ## 3. 📅 Ingeniería de Características (Business Features)
 
 ### A. Estacionalidad Mensual (Alta Temporada)
-* **Meses Pico:** Junio, Julio, Diciembre y Enero.
+* **Meses Pico (Validados):** Junio (1.1), Julio (1.15), Octubre (1.12) y Diciembre (1.33).
+* **Nota:** Enero es históricamente un mes de baja demanda (resaca post-navideña).
 * **Acción:** Variables binarias (dummys) para estos meses.
 
 ### B. Dinámica Promocional ("Pague 1, Lleve otro Gratis")

@@ -17,30 +17,43 @@ Para las fases 1, 2, 4 y 5, el agente debe certificar el cumplimiento de estos 5
 ## 🔬 Fases Obligatorias del Pipeline
 
 ### Phase 01: Discovery & Audit (Data Health)
-* **Acción**: Extracción de Supabase y Auditoría Médica de salud de datos.
+* **Acción**: Sincronización incremental desde Supabase (formato Parquet) y Auditoría integral de salud de datos.
 * **Controles Críticos**:
-    * **Mínimo Histórico**: Validar la existencia de al menos **36 meses** de datos.
-    * **Salud**: Detectar valores centinela (0, -1, 999) e integridad temporal (sin huecos).
-* **Salidas Lab**: JSON en `experiments/phase_01_discovery/artifacts/`.
+    * **Sync Logic**: Validar descarga incremental vs local, manejo de duplicados por `id`.
+    * **Data Contract**: Validación estricta de esquema (columnas faltantes/extra) según `data_contract` en `config.yaml`.
+    * **Mínimo Histórico**: Validar existencia de al menos **36 meses** de datos (especialmente en `ventas_diarias`).
+    * **Salud Estadística**: Perfilado de nulos, valores centinela (0, -1, 999), varianza cero, alta cardinalidad y detección de huecos temporales.
+    * **Auditoría Financiera**: Validación de integridad de negocio (Unidades: Normal + Promo = Total; Promos: Pagadas = Bonificadas; Cálculos: Ingresos, Costos y Utilidad concuerdan).
+* **Salidas Lab**: JSON en `experiments/phase_01_discovery/artifacts/` y Parquets en `data/01_raw/`.
 * **Salidas Prod**: JSON en `outputs/reports/phase_01_discovery/`.
 
 ### Phase 02: Robust Preprocessing (Cleansing)
-* **Acción**: Limpieza, tratamiento de anomalías y agregación mensual en `src/preprocessing.py`.
+* **Acción**: Limpieza profunda, estandarización, imputación lógica y agregación mensual.
 * **Controles Críticos**:
-    * **Agregación**: Resample a granularidad Mensual (MS) mediante suma.
-    * **Limpieza**: Aplicar imputación de nulos/centinelas según parámetros de `config.yaml`.
-* **Salidas Lab**: JSON y figuras en `experiments/phase_02_preprocessing/`.
-* **Salidas Prod**: JSON y figuras en `outputs/reports/phase_02_preprocessing/` y `outputs/figures/phase_02_preprocessing/`.
+    * **Data Contract**: Validación de esquema y tipos antes de procesar.
+    * **Cleaning & Standard**: Deduplicación exacta y temporal (keep last), estandarización a snake_case.
+    * **Temporal Reindexing**: Reindexar series diarias para recuperar huecos antes de la agregación.
+    * **Imputación de Negocio**: Lógica específica para Macro (Rolling Mean), Promo (inferencia por mes) y Marketing (interpolación en rangos activos).
+    * **Recálculo Financiero**: Corrección selectiva de Ingresos/Costos solo en filas imputadas/corregidas.
+    * **Anti-Data Leakage**: Recorte obligatorio del mes en curso (incompleto) para evitar sesgos.
+    * **Agregación**: Resample a granularidad Mensual (MS) aplicando reglas específicas (sum para ventas, first para macro).
+* **Salidas Lab**: JSON y Parquets en `experiments/phase_02_preprocessing/`.
+* **Salidas Prod**: Dataset maestro `master_monthly.parquet` en `data/02_cleansed/` y reportes en `outputs/reports/phase_02_preprocessing/`.
 
 ### Phase 03: Exploratory Data Analysis (EDA)
-* **Acción**: Análisis visual profundo en Notebook. **Nota**: Finaliza en paso [LAB].
-* **Controles Críticos**: Descomposición estacional (Trend/Season/Resid), Boxplots de meses pico y validación estadística de impactos (Novenas/Primas).
-* **Artefacto**: Figuras en `experiments/phase_03_eda/figures/`.
+* **Acción**: Análisis visual y estadístico profundo en Notebook bajo el principio **"Only Eyes on the Past"**.
+* **Controles Críticos**:
+    * **Partición Estricta**: Definición de límites Train/Val/Test. El EDA se limita al **Train set**.
+    * **Estadística Avanzada**: Test de Dickey-Fuller (estacionariedad), detección de atípicos por IQR y análisis de Drift.
+    * **Visualización de Negocio**: Descomposición estacional, Boxplots por mes (picos Dic/Jun) y KDE de impacto de Promociones.
+    * **Dinámica Temporal**: Análisis de Correlación Cruzada (Lags) para Marketing y gráficos ACF/PACF.
+    * **Contexto Histórico**: Identificación de la Pandemia como shock exógeno.
+* **Salidas Lab**: Reporte JSON timestampped y figuras en `experiments/phase_03_eda/`.
 
 ### Phase 04: Feature Engineering (Enrichment)
 * **Acción**: Creación de variables exógenas y proyecciones macro en `src/features.py`.
 * **Controles Críticos**:
-    * **Eventos**: Novenas (16-24 Dic), Primas (15-20 Jun/Dic), Días Pico (Sáb+Dom+Fest).
+    * **Eventos**: Novenas (16-23 Dic), Primas (15-20 Jun/Dic), Días Pico (Sáb+Dom+Fest).
     * **Proyección**: Aplicar **Promedio Móvil Recursivo de 2 meses** para el horizonte $X$ a $X+5$.
 * **Salidas Prod**: Dataset final en `data/04_processed/` y reportes en `outputs/reports/phase_04_features/`.
 
