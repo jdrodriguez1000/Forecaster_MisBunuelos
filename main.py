@@ -24,12 +24,19 @@ def main():
         loader = DataLoader(config)
         loader.run()
 
-    # 2. Preprocessing
+    # 3. Preprocessing
     if not args.phase or args.phase == "preprocessing":
         print("Running Phase 2: Preprocessing...")
         from src.preprocessor import Preprocessor
         preprocessor = Preprocessor(config)
         preprocessor.run()
+
+    # 4. Feature Engineering
+    if not args.phase or args.phase == "engineering":
+        print("Running Phase 4: Feature Engineering...")
+        from src.features import FeatureEngineer
+        engineer = FeatureEngineer(config)
+        engineer.run()
 
 if __name__ == "__main__":
     main()
